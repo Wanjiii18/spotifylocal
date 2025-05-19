@@ -1,20 +1,67 @@
 <ion-header [translucent]="true">
-  <ion-toolbar>
+    <ion-toolbar color="primary">
     <ion-title>
-      Blank
+      Music Player
     </ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="pickFiles()">
+        <ion-icon name="add-outline"></ion-icon>
+      </ion-button>
+    </ion-buttons>
   </ion-toolbar>
 </ion-header>
 
 <ion-content [fullscreen]="true">
-  <ion-header collapse="condense">
-    <ion-toolbar>
-      <ion-title size="large">Blank</ion-title>
-    </ion-toolbar>
-  </ion-header>
-
-  <div id="container">
-    <strong>Ready to create an app?</strong>
-    <p>Start with Ionic <a target="_blank" rel="noopener noreferrer" href="https://ionicframework.com/docs/components">UI Components</a></p>
+  <div class="ion-padding">
+    <!-- Track List -->
+    <ion-list>
+      <ion-item *ngFor="let track of tracks" (click)="playTrack(track)">
+        <ion-thumbnail slot="start">
+          <ion-icon name="musical-note" *ngIf="!track.albumArt"></ion-icon>
+          <img [src]="track.albumArt" *ngIf="track.albumArt">
+        </ion-thumbnail>
+        <ion-label>
+          <h2>{{ track.name }}</h2>
+          <p>{{ track.artist || 'Unknown Artist' }}</p>
+        </ion-label>
+        <ion-icon slot="end" 
+                  [name]="(currentTrack?.url === track.url && isPlaying) ? 'pause' : 'play'"
+                  (click)="$event.stopPropagation(); togglePlayPause(track)">
+        </ion-icon>
+      </ion-item>
+    </ion-list>
   </div>
+
+  <!-- Player Controls -->
+  <ion-footer *ngIf="currentTrack">
+    <ion-toolbar color="light">
+      <ion-row class="ion-align-items-center">
+        <ion-col size="2" class="ion-text-center">
+          <ion-button fill="clear" (click)="previousTrack()">
+            <ion-icon name="play-skip-back"></ion-icon>
+          </ion-button>
+        </ion-col>
+        <ion-col size="2" class="ion-text-center">
+          <ion-button fill="clear" (click)="togglePlay()">
+            <ion-icon [name]="isPlaying ? 'pause' : 'play'"></ion-icon>
+          </ion-button>
+        </ion-col>
+        <ion-col size="2" class="ion-text-center">
+          <ion-button fill="clear" (click)="nextTrack()">
+            <ion-icon name="play-skip-forward"></ion-icon>
+          </ion-button>
+        </ion-col>
+        <ion-col size="6">
+          <ion-range [(ngModel)]="volume" 
+                     (ionChange)="updateVolume($event)"
+                     min="0" 
+                     max="100">
+            <ion-icon size="small" slot="start" name="volume-low"></ion-icon>
+            <ion-icon slot="end" name="volume-high"></ion-icon>
+          </ion-range>
+        </ion-col>
+      </ion-row>
+      <ion-progress-bar [value]="progress"></ion-progress-bar>
+    </ion-toolbar>
+  </ion-footer>
 </ion-content>
