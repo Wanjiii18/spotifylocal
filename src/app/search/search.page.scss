@@ -1,0 +1,31 @@
+/* Add your styles for the Search page here */
+
+.search-content {
+  --background: #f4f4f4;
+}
+
+ion-searchbar {
+  margin: 16px;
+  --background: #ffffff;
+  --placeholder-color: #888;
+}
+
+ion-list {
+  margin: 16px;
+  background: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.loading-spinner {
+  display: block;
+  margin: 32px auto;
+  text-align: center;
+}
+
+.no-results {
+  text-align: center;
+  margin: 32px;
+  font-size: 1.2em;
+  color: #666;
+}

@@ -3,6 +3,12 @@
     <ion-title>
       Music Player
     </ion-title>
+    <ion-buttons slot="start">
+      <ion-button routerLink="/streaming">
+        <ion-icon name="play-circle-outline"></ion-icon>
+        Go to Streaming
+      </ion-button>
+    </ion-buttons>
     <ion-buttons slot="end">
       <ion-button (click)="pickFiles()">
         <ion-icon name="add-outline"></ion-icon>

@@ -1,5 +1,6 @@
 ion-content {
-  --background: #f4f5f8;
+  --background: black;
+  color: white;
 }
 
 ion-thumbnail {
@@ -10,11 +11,12 @@ ion-thumbnail {
   
   ion-icon {
     font-size: 24px;
-    color: var(--ion-color-medium);
+    color: white;
   }
 }
 
 ion-footer {
+  background: black;
   ion-toolbar {
     padding: 8px;
   }

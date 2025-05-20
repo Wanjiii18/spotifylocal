@@ -1,0 +1,101 @@
+<ion-header [translucent]="true">
+  <ion-toolbar color="dark">
+    <ion-buttons slot="start">
+      <ion-menu-button></ion-menu-button>
+    </ion-buttons>
+    <ion-title>Music Streaming</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true" class="ion-padding">
+  <ion-header collapse="condense">
+    <ion-toolbar color="dark">
+      <ion-title size="large">Music Streaming</ion-title>
+    </ion-toolbar>
+  </ion-header>
+
+  <!-- Search Bar -->
+  <ion-searchbar
+    [(ngModel)]="searchQuery"
+    (ionChange)="searchTracks()"
+    placeholder="Search for tracks or artists"
+    debounce="500"
+    color="light"
+  ></ion-searchbar>
+
+  <ion-button expand="block" (click)="fetchAllTracks()" color="secondary" class="custom-button">
+    <ion-icon name="musical-notes-outline" slot="start"></ion-icon>
+    Load Popular Tracks
+  </ion-button>
+
+  <!-- Loading Spinner -->
+  <div *ngIf="isLoading" class="ion-text-center ion-padding-top">
+    <ion-spinner name="crescent" color="light"></ion-spinner>
+    <p>Loading tracks...</p>
+  </div>
+
+  <!-- Error Message -->
+  <div *ngIf="error && !isLoading" class="ion-text-center ion-padding error-message">
+    <ion-icon name="alert-circle-outline" color="danger" class="error-icon"></ion-icon>
+    <p>{{ error }}</p>
+    <ion-button (click)="fetchAllTracks()" fill="outline" color="light">Try Again</ion-button>
+  </div>
+
+  <!-- Track List -->
+  <div *ngIf="!isLoading && !error">
+    <ion-list *ngIf="tracks.length > 0; else noTracks" class="track-list">
+      <ion-list-header class="list-header">
+        Available Tracks
+      </ion-list-header>
+      <ion-item *ngFor="let track of tracks" lines="full" class="track-item">
+        <ion-thumbnail slot="start">
+          <img [src]="track.album_image || 'https://ionicframework.com/docs/img/demos/thumbnail.svg'" alt="Album Art">
+        </ion-thumbnail>
+        <ion-label>
+          <h2>{{ track.name }}</h2>
+          <p>{{ track.artist_name }}</p>
+        </ion-label>
+        <ion-button fill="clear" (click)="playTrack(track)" slot="end" color="primary">
+          <ion-icon name="play-circle-outline" slot="icon-only"></ion-icon>
+        </ion-button>
+        <ion-button fill="clear" (click)="markAsFavorite(track)" slot="end" [color]="isFavorite(track) ? 'danger' : 'medium'">
+          <ion-icon [name]="isFavorite(track) ? 'heart' : 'heart-outline'" slot="icon-only"></ion-icon>
+        </ion-button>
+      </ion-item>
+    </ion-list>
+    <ng-template #noTracks>
+      <div *ngIf="!searchQuery || tracks.length === 0" class="ion-text-center ion-padding message-container">
+        <ion-icon name="information-circle-outline" class="info-icon"></ion-icon>
+        <p>No tracks available at the moment. Try loading popular tracks or searching for something specific.</p>
+      </div>
+      <div *ngIf="searchQuery && tracks.length === 0" class="ion-text-center ion-padding message-container">
+        <ion-icon name="search-outline" class="info-icon"></ion-icon>
+        <p>No tracks found for "{{searchQuery}}". Try a different search term.</p>
+      </div>
+    </ng-template>
+  </div>
+
+
+  <!-- Favorite Tracks List -->
+  <ion-list *ngIf="favorites.length > 0" class="favorites-list">
+    <ion-list-header class="list-header">
+      Favorite Tracks
+    </ion-list-header>
+    <ion-item *ngFor="let track of favorites" lines="full" class="track-item">
+      <ion-thumbnail slot="start">
+        <img [src]="track.album_image || 'https://ionicframework.com/docs/img/demos/thumbnail.svg'" alt="Album Art">
+      </ion-thumbnail>
+      <ion-label>
+        <h2>{{ track.name }}</h2>
+        <p>{{ track.artist_name }}</p>
+      </ion-label>
+      <ion-button fill="clear" (click)="playTrack(track)" slot="end" color="primary">
+        <ion-icon name="play-circle-outline" slot="icon-only"></ion-icon>
+      </ion-button>
+      <ion-button fill="clear" (click)="markAsFavorite(track)" slot="end" color="danger">
+        <ion-icon name="heart" slot="icon-only"></ion-icon> <!-- Always filled heart for favorites list -->
+      </ion-button>
+    </ion-item>
+  </ion-list>
+
+</ion-content>

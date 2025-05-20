@@ -1,0 +1,28 @@
+<ion-header>
+  <ion-toolbar color="primary">
+    <ion-title>Search Tracks</ion-title>
+    <ion-buttons slot="end">
+      <ion-button routerLink="/streaming" color="light">Go to Streaming</ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="search-content">
+  <ion-searchbar [(ngModel)]="query" (ionInput)="searchTracks()" placeholder="Search for tracks..." debounce="500"></ion-searchbar>
+
+  <ion-spinner *ngIf="isLoading" class="loading-spinner"></ion-spinner>
+
+  <ion-list *ngIf="tracks.length > 0">
+    <ion-item *ngFor="let track of tracks">
+      <ion-label>
+        <h2>{{ track.name }}</h2>
+        <p>{{ track.artist_name }}</p>
+      </ion-label>
+      <ion-button slot="end" color="success" (click)="playTrack(track.id)">Play</ion-button>
+    </ion-item>
+  </ion-list>
+
+  <div *ngIf="!isLoading && tracks.length === 0 && query.trim()" class="no-results">
+    <p>No tracks found. Try a different search query.</p>
+  </div>
+</ion-content>
