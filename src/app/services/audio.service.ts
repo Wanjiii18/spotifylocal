@@ -14,9 +14,11 @@ export interface Track {
 @Injectable({
   providedIn: 'root'
 })
-export class AudioService {  private audio: HTMLAudioElement;
+export class AudioService {
+  private audio: HTMLAudioElement;
   private currentTrack = new BehaviorSubject<Track | null>(null);
   private isPlaying = new BehaviorSubject<boolean>(false);
+  private progress = new BehaviorSubject<number>(0); // Added progress subject
   private playlist: Track[] = [];
   private activeBlob: string | null = null;
 
@@ -39,6 +41,10 @@ export class AudioService {  private audio: HTMLAudioElement;
     });
 
     this.audio.addEventListener('timeupdate', () => {
+      // Update progress
+      if (this.audio.duration > 0) {
+        this.progress.next(this.audio.currentTime / this.audio.duration);
+      }
       // Reset if audio gets stuck
       if (this.audio.currentTime > 0 && this.audio.currentTime === this.audio.duration) {
         this.cleanupAudio();
@@ -51,6 +57,7 @@ export class AudioService {  private audio: HTMLAudioElement;
     if (this.audio) {
       this.audio.pause();
       this.audio.currentTime = 0;
+      this.progress.next(0); // Reset progress on cleanup
     }
     if (this.activeBlob) {
       URL.revokeObjectURL(this.activeBlob);
@@ -190,8 +197,23 @@ export class AudioService {  private audio: HTMLAudioElement;
     return this.isPlaying.asObservable();
   }
 
-  seek(time: number) {
-    this.audio.currentTime = time;
+  getProgress() { // Added getProgress method
+    return this.progress.asObservable();
+  }
+
+  getCurrentTime(): number { // Added getCurrentTime method
+    return this.audio.currentTime;
+  }
+
+  getDuration(): number { // Added getDuration method
+    return this.audio.duration || 0; // Ensure it returns 0 if duration is NaN or undefined
+  }
+
+  seek(percentage: number) { // Changed parameter to percentage (0 to 1)
+    if (this.audio.duration && isFinite(this.audio.duration)) {
+      this.audio.currentTime = this.audio.duration * percentage;
+      this.progress.next(percentage); // Immediately update progress subject
+    }
   }
 
   setVolume(volume: number) {

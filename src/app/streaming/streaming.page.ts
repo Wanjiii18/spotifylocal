@@ -1,50 +1,86 @@
-import { Component, CUSTOM_ELEMENTS_SCHEMA, OnInit } from '@angular/core';
-import { IonicModule } from '@ionic/angular';
+import { Component, CUSTOM_ELEMENTS_SCHEMA, OnInit, NgZone, OnDestroy } from '@angular/core';
+import { IonicModule, ToastController } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { JamendoService } from '../services/jamendo.service';
+import { PlaybackService } from '../services/playback/playback.service';
+import { Router } from '@angular/router'; // Added Router
 
 @Component({
   selector: 'app-streaming',
   templateUrl: './streaming.page.html',
   styleUrls: ['./streaming.page.scss'],
-  standalone: true, // Mark as standalone
-  imports: [IonicModule, CommonModule, FormsModule], // Import necessary modules
-  schemas: [CUSTOM_ELEMENTS_SCHEMA], // Allow Ionic components
+  standalone: true,
+  imports: [IonicModule, CommonModule, FormsModule],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })
-export class StreamingPage implements OnInit {
+export class StreamingPage implements OnInit, OnDestroy {
   tracks: any[] = [];
   favorites: any[] = [];
   isLoading: boolean = false;
   error: string | null = null;
-  searchQuery: string = ''; // Added for the search input
+  searchQuery: string = '';
+  currentTrack: any = null; 
+  isLoadingTrack: boolean = false;
+  playbackError: string | null = null;
 
-  constructor(private jamendoService: JamendoService) {}
+  progressPercent: number = 0;
+  progressInterval: any = null;
+  currentTrackIndex: number = -1; 
+  
+  volume: number = 0.75; 
 
+  currentTime: string = '0:00';
+  duration: string = '0:00';
+  durationSecs: number = 0;
+  currentTimeSecs: number = 0;
+  sliderValue: number = 0; 
+  isSeekingUsingSlider: boolean = false;
+
+  constructor(
+    private jamendoService: JamendoService,
+    private toastController: ToastController,
+    private zone: NgZone,
+    private playbackService: PlaybackService,
+    private router: Router // Injected Router
+  ) {
+    this.volume = this.playbackService.getVolume();
+  }
+  
   ngOnInit() {
-    // Optionally load initial tracks, e.g., popular ones
     this.fetchAllTracks();
+    this.startProgressUpdates();
+  }
+
+  // Add this new method for programmatic navigation
+  navigateToHome() {
+    console.log('Attempting to navigate to /home programmatically...');
+    this.router.navigate(['/home']).then(success => {
+      if (success) {
+        console.log('Navigation to /home successful.');
+      } else {
+        console.error('Navigation to /home failed.');
+      }
+    }).catch(err => {
+      console.error('Error during navigation attempt:', err);
+    });
   }
 
   async searchTracks() {
     if (!this.searchQuery.trim()) {
-      // If search query is empty, perhaps fetch popular tracks or do nothing
-      // For now, let's fetch popular tracks as a default action for an empty search
-      this.fetchAllTracks();
+      this.fetchAllTracks(); 
       return;
     }
     try {
       this.isLoading = true;
       this.error = null;
-      this.tracks = await this.jamendoService.searchTracks(this.searchQuery);
-      console.log('Tracks loaded from search:', this.tracks);
+      this.tracks = await this.jamendoService.searchTracksByArtistName(this.searchQuery);
       if (!this.tracks || this.tracks.length === 0) {
-        console.log('No tracks returned from service for query:', this.searchQuery);
-        // Optionally set a message like "No tracks found for your query."
+        this.error = `No tracks found for artist "${this.searchQuery}".`;
       }
     } catch (err) {
-      console.error('Error in searchTracks:', err);
-      this.error = 'Failed to search tracks. Please ensure your Jamendo Client ID is correctly set in the service.';
+      console.error('Error in searchTracks (artist search):', err);
+      this.error = 'Failed to search tracks by artist.';
     } finally {
       this.isLoading = false;
     }
@@ -54,14 +90,13 @@ export class StreamingPage implements OnInit {
     try {
       this.isLoading = true;
       this.error = null;
-      this.tracks = await this.jamendoService.searchTracks(''); // Empty query fetches popular tracks
-      console.log('Popular tracks loaded in component:', this.tracks);
+      this.tracks = await this.jamendoService.fetchPopularTracks();
       if (!this.tracks || this.tracks.length === 0) {
-        console.log('No popular tracks returned from service.');
+        this.error = 'No popular tracks available at the moment.';
       }
     } catch (err) {
       console.error('Error in fetchAllTracks:', err);
-      this.error = 'Failed to load popular tracks. Please ensure your Jamendo Client ID is correctly set in the service.';
+      this.error = 'Failed to load popular tracks.';
     } finally {
       this.isLoading = false;
     }
@@ -70,81 +105,244 @@ export class StreamingPage implements OnInit {
   markAsFavorite(track: any) {
     const index = this.favorites.findIndex(fav => fav.id === track.id);
     if (index > -1) {
-      this.favorites.splice(index, 1); // Remove from favorites
+      this.favorites.splice(index, 1);
     } else {
-      this.favorites.push(track); // Add to favorites
+      this.favorites.push(track);
     }
-    console.log('Favorites:', this.favorites);
   }
 
   isFavorite(track: any): boolean {
     return this.favorites.some(fav => fav.id === track.id);
   }
 
-  playTrack(track: any) {
-    console.log('Full track object:', track);
-    const audioUrl = this.jamendoService.getTrackStreamUrl(track);
+  findTrackIndex(track: any): number {
+    if (!track || !track.id) return -1;
+    const sourceArray = this.tracks; // Always use streaming tracks
+    return sourceArray.findIndex(t => t.id === track.id);
+  }
 
-    if (audioUrl) {
-      console.log('Attempting to play track:', track.name, 'from URL:', audioUrl);
-      const audio = new Audio(); // Create audio element instance
+  hasPreviousTrack(): boolean {
+    return this.currentTrackIndex > 0;
+  }
 
-      // Event listeners for debugging
-      audio.oncanplay = () => {
-        console.log(`Audio for "${track.name}" can play.`);
-      };
-      audio.oncanplaythrough = () => {
-        console.log(`Audio for "${track.name}" can play through.`);
-        audio.play()
-          .then(() => {
-            console.log(`Playback started for: "${track.name}"`);
-          })
-          .catch(error => {
-            console.error(`Error starting playback for "${track.name}":`, error);
-            alert(`Could not play track: ${track.name}. Playback initiation failed.`);
-          });
-      };
-      audio.onerror = (e) => {
-        console.error(`Audio element error for "${track.name}":`, e);
-        let errorMessage = 'Unknown audio error.';
-        if (audio.error) {
-          switch (audio.error.code) {
-            case MediaError.MEDIA_ERR_ABORTED:
-              errorMessage = 'Playback aborted by the user or script.';
-              break;
-            case MediaError.MEDIA_ERR_NETWORK:
-              errorMessage = 'A network error caused the audio download to fail.';
-              break;
-            case MediaError.MEDIA_ERR_DECODE:
-              errorMessage = 'The audio playback was aborted due to a corruption problem or because the audio used features your browser did not support.';
-              break;
-            case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
-              errorMessage = 'The audio could not be loaded, either because the server or network failed or because the format is not supported.';
-              break;
-            default:
-              errorMessage = `An unknown error occurred (Code: ${audio.error.code}).`;
-          }
-          console.error(`Specific audio error for "${track.name}": Code ${audio.error.code}, Message: ${audio.error.message || errorMessage}`);
-        }
-        alert(`Could not play track: ${track.name}. ${errorMessage}`);
-      };
-      audio.onstalled = () => {
-        console.warn(`Audio stalled for "${track.name}": Insufficient data for playback.`);
-      };
-      audio.onsuspend = () => {
-        console.warn(`Audio suspended for "${track.name}": Loading of the media is suspended.`);
-      };
-      audio.onwaiting = () => {
-        console.warn(`Audio waiting for "${track.name}": Playback stopped due to temporary lack of data.`);
-      };
+  hasNextTrack(): boolean {
+    const trackArray = this.tracks; // Always use streaming tracks
+    return this.currentTrackIndex < trackArray.length - 1;
+  }
 
-      audio.src = audioUrl; // Set the source after attaching listeners
-      console.log(`Loading audio for "${track.name}" from URL:`, audioUrl);
-      audio.load(); // Explicitly call load(). Some browsers require this.
-
-    } else {
-      console.warn('No audio URL found for track:', track.name);
-      alert('No audio source found for this track.');
+  previousTrack() {
+    if (!this.hasPreviousTrack()) return;
+    const trackArray = this.tracks; // Always use streaming tracks
+    const prevTrack = trackArray[this.currentTrackIndex - 1];
+    if (prevTrack) {
+      this.playJamendoTrack(prevTrack);
     }
+  }
+
+  nextTrack() {
+    if (!this.hasNextTrack()) return;
+    const trackArray = this.tracks; // Always use streaming tracks
+    const nextTrackToPlay = trackArray[this.currentTrackIndex + 1]; 
+    if (nextTrackToPlay) {
+      this.playJamendoTrack(nextTrackToPlay);
+    }
+  }
+  
+  formatTime(secs: number): string {
+    if (isNaN(secs) || !isFinite(secs)) return '0:00';
+    const minutes = Math.floor(secs / 60) || 0;
+    const seconds = Math.floor(secs - minutes * 60) || 0;
+    return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+  }
+
+  updateProgress() {
+    // Always get the latest playing state from the service
+    const isPlaying = this.playbackService.isPlaying();
+
+    if (isPlaying && !this.isSeekingUsingSlider) {
+      try {
+        const seek = this.playbackService.getCurrentTime();
+        const duration = this.playbackService.getDuration();
+
+        if (duration <= 0) {
+            this.resetPlaybackUIState(false); // Don't clear current track info
+            return;
+        }
+        
+        this.zone.run(() => {
+          this.currentTimeSecs = seek;
+          this.durationSecs = duration;
+          this.currentTime = this.formatTime(seek);
+          this.duration = this.formatTime(duration);
+          this.progressPercent = seek / duration;
+          this.sliderValue = this.progressPercent * 100;
+        });
+
+        // Check for track end slightly differently
+        if (seek >= duration - 0.1 && duration > 0) { // Small tolerance for end detection
+            // PlaybackService onend should handle actual stop/cleanup.
+            // This is more for UI update if polling catches it at the very end.
+            // Consider if auto-advance logic should be here or purely event-driven from service
+        }
+
+      } catch (err) {
+        console.error('Error updating progress in StreamingPage:', err);
+        this.resetPlaybackUIState(false);
+      }
+    } else if (!isPlaying) {
+        const duration = this.playbackService.getDuration();
+        const seek = this.playbackService.getCurrentTime();
+
+        if (this.currentTrack && duration > 0 && seek > 0 && seek < duration - 0.1) {
+            // Paused state - UI should reflect current seek time but not actively progressing
+            this.zone.run(() => {
+              this.currentTimeSecs = seek;
+              this.durationSecs = duration;
+              this.currentTime = this.formatTime(seek);
+              this.duration = this.formatTime(duration);
+              this.progressPercent = seek / duration;
+              this.sliderValue = this.progressPercent * 100;
+            });
+        } else if (this.currentTrack && duration > 0 && (seek === 0 || seek >= duration - 0.1)) {
+            // Stopped or ended - reset progress but keep track info if it just ended
+            this.resetPlaybackUIState(seek >= duration - 0.1); // Clear track if it truly ended and wasn't just stopped at start
+             if (seek >= duration - 0.1 && this.hasNextTrack()) {
+                // Optional: Auto-play next, or rely on user action
+                // this.nextTrack(); 
+             }
+        } else if (!this.currentTrack) {
+            // No track active, ensure fully reset UI
+            this.resetPlaybackUIState(true);
+        }
+    }
+  }
+  
+  resetPlaybackUIState(clearCurrentTrack: boolean) {
+    this.zone.run(() => {
+      this.progressPercent = 0;
+      this.sliderValue = 0;
+      this.currentTime = '0:00';
+      this.duration = '0:00';
+      this.currentTimeSecs = 0;
+      this.durationSecs = 0;
+      if (clearCurrentTrack) {
+        this.currentTrack = null;
+        this.currentTrackIndex = -1;
+      }
+    });
+  }
+
+  startProgressUpdates() {
+    this.stopProgressUpdates(); 
+    this.progressInterval = setInterval(() => {
+      this.updateProgress();
+    }, 500);
+  }
+
+  stopProgressUpdates() {
+    if (this.progressInterval) {
+      clearInterval(this.progressInterval);
+      this.progressInterval = null;
+    }
+  }
+
+  async playJamendoTrack(track: any) {
+    if (!track) {
+      this.playbackError = 'Cannot play an empty track.';
+      return;
+    }
+    this.isLoadingTrack = true;
+    this.playbackError = null;
+    this.currentTrack = track; 
+
+    try {
+      const streamUrl = await this.jamendoService.getTrackStreamUrl(track);
+      if (streamUrl) {
+        this.playbackService.playTrack(streamUrl);
+        this.currentTrackIndex = this.findTrackIndex(track);
+      } else {
+        this.playbackError = 'Could not retrieve a valid stream URL for this track.';
+        this.currentTrack = null;
+      }
+    } catch (error: any) {
+      this.playbackError = `Error playing Jamendo track: ${error?.message || 'Unknown error'}`;
+      this.currentTrack = null;
+    } finally {
+      this.isLoadingTrack = false;
+    }
+  }
+
+  stopCurrentTrack() { 
+    this.playbackService.stopPlayback();
+    this.resetPlaybackUIState(false); // Keep current track info, but reset progress
+  }
+
+  togglePlayPause(track: any) {
+    if (!track) return;
+
+    const isCurrentlyPlayingThisTrack = this.currentTrack && this.currentTrack.id === track.id && this.playbackService.isPlaying();
+
+    if (isCurrentlyPlayingThisTrack) {
+      this.playbackService.pause();
+    } else if (this.currentTrack && this.currentTrack.id === track.id && !this.playbackService.isPlaying()) {
+      this.playbackService.resume(); 
+    } else {
+      this.playJamendoTrack(track);
+    }
+  }
+
+  isActiveTrack(track: any): boolean {
+    return this.currentTrack && this.currentTrack.id === track.id;
+  }
+
+  get isCurrentTrackPlaying(): boolean {
+    // Check if there is a current track and if the playback service reports it as playing.
+    // This ensures that even if currentTrack is set, we only consider it playing if the service confirms.
+    return !!this.currentTrack && this.playbackService.isPlaying();
+  }
+
+  onVolumeChange(event: any) {
+    const newVolume = event.detail.value;
+    this.playbackService.setVolume(newVolume);
+    this.volume = newVolume; 
+  }
+
+  onSliderChangeStart() { // Renamed from onSeekStart
+    this.isSeekingUsingSlider = true;
+  }
+
+  onSliderChangeEnd(event: any) { // Renamed from onSeekEnd
+    if (this.isSeekingUsingSlider) { // Corrected syntax: added parentheses
+      const percentage = event.detail.value / 100;
+      this.playbackService.seek(percentage);
+      this.isSeekingUsingSlider = false;
+    }
+  }
+
+  toggleMute() {
+    this.playbackService.toggleMute();
+    this.volume = this.playbackService.getVolume(); 
+  }
+
+  isMuted(): boolean {
+    return this.playbackService.isMuted();
+  }
+
+  get currentPlaybackTime(): number {
+    return this.playbackService.getCurrentTime();
+  }
+
+  get currentTrackDuration(): number {
+    return this.playbackService.getDuration();
+  }
+
+  // This getter is a more direct way to check if any track is playing via the service.
+  // It can be used if isCurrentTrackPlaying (which also checks currentTrack object) is not specific enough.
+  isPlaying(): boolean {
+    return this.playbackService.isPlaying();
+  }
+
+  ngOnDestroy() {
+    this.stopProgressUpdates();
   }
 }

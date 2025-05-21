@@ -1,5 +1,5 @@
 <ion-header>
-  <ion-toolbar color="primary">
+  <ion-toolbar color="dark">
     <ion-title>Search Tracks</ion-title>
     <ion-buttons slot="end">
       <ion-button routerLink="/streaming" color="light">Go to Streaming</ion-button>
@@ -10,19 +10,69 @@
 <ion-content class="search-content">
   <ion-searchbar [(ngModel)]="query" (ionInput)="searchTracks()" placeholder="Search for tracks..." debounce="500"></ion-searchbar>
 
-  <ion-spinner *ngIf="isLoading" class="loading-spinner"></ion-spinner>
+  <div *ngIf="isLoading" class="loading-container">
+    <ion-spinner name="crescent"></ion-spinner>
+    <p>Searching tracks...</p>
+  </div>
 
-  <ion-list *ngIf="tracks.length > 0">
-    <ion-item *ngFor="let track of tracks">
+  <ion-list *ngIf="tracks.length > 0" class="track-list">
+    <ion-item *ngFor="let track of tracks" lines="full" class="track-item">
+      <ion-thumbnail slot="start">
+        <img *ngIf="track.album_image" [src]="track.album_image" alt="Album Art">
+        <ion-icon *ngIf="!track.album_image" name="musical-note" class="placeholder-icon"></ion-icon>
+      </ion-thumbnail>
       <ion-label>
         <h2>{{ track.name }}</h2>
         <p>{{ track.artist_name }}</p>
       </ion-label>
-      <ion-button slot="end" color="success" (click)="playTrack(track.id)">Play</ion-button>
+      <ion-button fill="clear" slot="end" class="play-button" (click)="togglePlayPause(track)">
+        <ion-icon [name]="(currentTrack?.id === track.id && isPlaying) ? 'pause' : 'play'" 
+                  [color]="(currentTrack?.id === track.id) ? 'primary' : 'medium'"></ion-icon>
+      </ion-button>
     </ion-item>
   </ion-list>
 
   <div *ngIf="!isLoading && tracks.length === 0 && query.trim()" class="no-results">
-    <p>No tracks found. Try a different search query.</p>
+    <ion-icon name="search-outline" class="empty-icon"></ion-icon>
+    <p>No tracks found for "{{ query }}"</p>
+    <p>Try a different search query.</p>
   </div>
+
+  <!-- Playback Error Message -->
+  <ion-toast *ngIf="playbackError"
+    [isOpen]="!!playbackError"
+    [message]="playbackError"
+    [duration]="5000"
+    position="middle"
+    color="danger"
+    (didDismiss)="playbackError = null"></ion-toast>
 </ion-content>
+
+<!-- Player Footer (shows when a track is selected) -->
+<ion-footer *ngIf="currentTrack" class="player-footer">
+  <div class="track-progress">
+    <ion-progress-bar [value]="progressPercent"></ion-progress-bar>
+  </div>
+  <ion-toolbar color="dark">
+    <ion-row class="ion-align-items-center">
+      <ion-col size="3" class="track-info">
+        <ion-thumbnail>
+          <img *ngIf="currentTrack?.album_image" [src]="currentTrack?.album_image" alt="Album Art">
+          <ion-icon *ngIf="!currentTrack?.album_image" name="musical-note"></ion-icon>
+        </ion-thumbnail>
+      </ion-col>
+      <ion-col size="5">
+        <div class="track-title">{{ currentTrack?.name }}</div>
+        <div class="track-artist">{{ currentTrack?.artist_name }}</div>
+      </ion-col>
+      <ion-col size="4" class="player-controls">
+        <ion-button fill="clear" (click)="togglePlayPause(currentTrack)" class="play-pause-button">
+          <ion-icon [name]="isPlaying ? 'pause' : 'play'" color="light"></ion-icon>
+        </ion-button>
+        <ion-button fill="clear" (click)="stopTrack()">
+          <ion-icon name="stop" color="light"></ion-icon>
+        </ion-button>
+      </ion-col>
+    </ion-row>
+  </ion-toolbar>
+</ion-footer>

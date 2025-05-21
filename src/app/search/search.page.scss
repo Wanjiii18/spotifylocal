@@ -1,24 +1,64 @@
-/* Add your styles for the Search page here */
+/* Optimized styles for Search page */
 
 .search-content {
-  --background: #f4f4f4;
+  --background: #121212;
+  color: white;
 }
 
 ion-searchbar {
   margin: 16px;
-  --background: #ffffff;
-  --placeholder-color: #888;
+  --background: rgba(255, 255, 255, 0.1);
+  --color: white;
+  --placeholder-color: #b3b3b3;
+  --icon-color: #b3b3b3;
+  --clear-button-color: #b3b3b3;
+  --border-radius: 4px;
 }
 
-ion-list {
+.track-list {
   margin: 16px;
-  background: #ffffff;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  background: transparent;
 }
 
-.loading-spinner {
-  display: block;
+.track-item {
+  --background: rgba(255, 255, 255, 0.05);
+  margin-bottom: 8px;
+  border-radius: 4px;
+  --padding-start: 8px;
+  --padding-end: 8px;
+  transition: background-color 0.2s;
+  
+  &:hover {
+    --background: rgba(255, 255, 255, 0.1);
+  }
+}
+
+ion-thumbnail {
+  --size: 50px;
+  margin: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+ion-label h2 {
+  color: white;
+  font-weight: 500;
+  margin-bottom: 4px;
+  font-size: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+ion-label p {
+  color: #b3b3b3;
+  font-size: 14px;
+}
+
+.loading-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   margin: 32px auto;
   text-align: center;
 }
@@ -26,6 +66,87 @@ ion-list {
 .no-results {
   text-align: center;
   margin: 32px;
-  font-size: 1.2em;
-  color: #666;
+}
+
+.play-button {
+  margin: 0;
+  height: 40px;
+  width: 40px;
+}
+
+/* Player Footer */
+.player-footer {
+  background: #282828;
+  padding: 0;
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.5);
+  
+  .track-progress {
+    height: 4px;
+    width: 100%;
+    
+    ion-progress-bar {
+      --background: rgba(255, 255, 255, 0.1);
+      --progress-background: #1DB954;
+      height: 4px;
+    }
+  }
+  
+  ion-toolbar {
+    --background: #282828;
+    --border-color: transparent;
+    padding: 8px 0;
+  }
+  
+  .track-info {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    
+    ion-thumbnail {
+      --size: 40px;
+      margin: 0;
+    }
+  }
+  
+  .track-title {
+    color: white;
+    font-size: 14px;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  .track-artist {
+    color: #b3b3b3;
+    font-size: 12px;
+    margin: 0;
+  }
+  
+  .player-controls {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    
+    ion-button {
+      margin: 0 4px;
+      height: 36px;
+      
+      ion-icon {
+        font-size: 20px;
+      }
+    }
+    
+    .play-pause-button {
+      --background: #1DB954;
+      --background-hover: #1ed760;
+      --border-radius: 50%;
+      height: 40px;
+      width: 40px;
+      
+      ion-icon {
+        font-size: 24px;
+      }
+    }
+  }
 }

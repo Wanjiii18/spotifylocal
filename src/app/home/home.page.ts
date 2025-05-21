@@ -15,6 +15,11 @@ export class HomePage implements OnInit {
   isPlaying = false;
   volume = 70;
   progress = 0;
+  unmutedVolume: number = 70; // To store volume before mute
+  currentTimeSecs: number = 0;
+  durationSecs: number = 0;
+  searchQuery: string = '';
+  filteredTracks: Track[] = [];
 
   constructor(
     private audioService: AudioService,
@@ -22,12 +27,19 @@ export class HomePage implements OnInit {
   ) {}
 
   ngOnInit() {
+    this.filteredTracks = this.tracks; // Initialize filteredTracks with all tracks
     this.audioService.getCurrentTrack().subscribe(track => {
       this.currentTrack = track;
     });
 
     this.audioService.getIsPlaying().subscribe(playing => {
       this.isPlaying = playing;
+    });
+
+    this.audioService.getProgress().subscribe(progress => {
+      this.progress = progress * 100; // Convert to percentage
+      this.currentTimeSecs = this.audioService.getCurrentTime();
+      this.durationSecs = this.audioService.getDuration();
     });
   }
 
@@ -118,16 +130,70 @@ export class HomePage implements OnInit {
     }
   }
 
+  hasPreviousTrack(): boolean {
+    const currentIndex = this.tracks.findIndex(track => track.url === this.currentTrack?.url);
+    return currentIndex > 0;
+  }
+
+  hasNextTrack(): boolean {
+    const currentIndex = this.tracks.findIndex(track => track.url === this.currentTrack?.url);
+    return currentIndex >= 0 && currentIndex < this.tracks.length - 1;
+  }
+
   previousTrack() {
-    this.audioService.playPrevious();
+    const currentIndex = this.tracks.findIndex(track => track.url === this.currentTrack?.url);
+    if (currentIndex > 0) {
+      const previousTrack = this.tracks[currentIndex - 1];
+      this.playTrack(previousTrack);
+    }
   }
 
   nextTrack() {
-    this.audioService.playNext();
+    const currentIndex = this.tracks.findIndex(track => track.url === this.currentTrack?.url);
+    if (currentIndex >= 0 && currentIndex < this.tracks.length - 1) {
+      const nextTrack = this.tracks[currentIndex + 1];
+      this.playTrack(nextTrack);
+    }
   }
 
   updateVolume(event: any) {
     const volume = event.detail.value / 100;
     this.audioService.setVolume(volume);
+  }
+
+  formatTime(secs: number): string {
+    if (isNaN(secs) || !isFinite(secs)) return '0:00';
+    const minutes = Math.floor(secs / 60) || 0;
+    const seconds = Math.floor(secs - minutes * 60) || 0;
+    return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+  }
+
+  onSeekStart() {
+    // Placeholder for seek start logic
+  }
+
+  onSeekEnd(event: any) {
+    const newValue = event.detail.value / 100; // Assuming slider value is 0-100
+    this.audioService.seek(newValue);
+    this.currentTimeSecs = this.audioService.getDuration() * newValue;
+  }
+
+  toggleMute() {
+    if (this.volume > 0) {
+      this.unmutedVolume = this.volume; // Save current volume
+      this.volume = 0;
+      this.audioService.setVolume(0);
+    } else {
+      this.volume = this.unmutedVolume > 0 ? this.unmutedVolume : 70; // Restore or set to default
+      this.audioService.setVolume(this.volume / 100);
+    }
+  }
+
+  filterTracks() {
+    const query = this.searchQuery.toLowerCase();
+    this.filteredTracks = this.tracks.filter(track =>
+      track.name.toLowerCase().includes(query) ||
+      (track.artist?.toLowerCase() || '').includes(query)
+    );
   }
 }
